@@ -1,4 +1,3 @@
-
 package main
 
 import (
@@ -14,7 +13,7 @@ type HealthResponse struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-func main() {
+func newHandler() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -25,14 +24,19 @@ func main() {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
+
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Printf("failed to encode health response: %v", err)
 		}
 	})
 
+	return mux
+}
+
+func main() {
 	server := &http.Server{
 		Addr:              ":8080",
-		Handler:           mux,
+		Handler:           newHandler(),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
