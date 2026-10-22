@@ -1,132 +1,176 @@
 
-import { useEffect, useState } from 'react'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
+
+type View = "health" | "hangout";
 
 type HealthResponse = {
-  status: string
-  service: string
-  timestamp: string
-}
-
-type ConnectionStatus = 'checking' | 'healthy' | 'unavailable'
+  status: string;
+  service: string;
+  timestamp: string;
+};
 
 function App() {
-  const [health, setHealth] = useState<HealthResponse | null>(null)
-  const [connectionStatus, setConnectionStatus] =
-    useState<ConnectionStatus>('checking')
-  const [error, setError] = useState('')
+  const [view, setView] = useState<View>("health");
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const controller = new AbortController()
-
     async function checkHealth() {
       try {
-        const response = await fetch('/api/health', {
-          signal: controller.signal,
-        })
+        const response = await fetch("/api/health");
 
         if (!response.ok) {
-          throw new Error(`API returned HTTP ${response.status}`)
+          throw new Error(`HTTP ${response.status}`);
         }
 
-        const data: HealthResponse = await response.json()
-
-        setHealth(data)
-        setConnectionStatus('healthy')
-        setError('')
+        const data: HealthResponse = await response.json();
+        setHealth(data);
+        setError(null);
       } catch (err) {
-        if (controller.signal.aborted) return
-
-        setConnectionStatus('unavailable')
+        setHealth(null);
         setError(
-          err instanceof Error ? err.message : 'An unknown error occurred',
-        )
+          err instanceof Error ? err.message : "Unknown error"
+        );
+      } finally {
+        setLoading(false);
       }
     }
 
-    void checkHealth()
-
-    return () => controller.abort()
-  }, [])
+    void checkHealth();
+  }, []);
 
   return (
-    <main className="dashboard">
-      <header className="dashboard-header">
-        <div>
-          <p className="eyebrow">PERSONAL OPERATIONS DASHBOARD</p>
-          <h1>SignalBoard</h1>
-          <p className="subtitle">
-            Your day, your signals, all in one place.
-          </p>
-        </div>
-        <span className={`status-badge ${connectionStatus}`}>
-          <span className="status-dot" />
-          {connectionStatus === 'checking'
-            ? 'Checking connection'
-            : connectionStatus === 'healthy'
-              ? 'API connected'
-              : 'API unavailable'}
-        </span>
-      </header>
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">SignalBoard</div>
+        <p className="sidebar-label">WORKSPACE</p>
 
-      <section className="dashboard-grid">
-        <article className="panel">
-          <p className="panel-label">SYSTEM HEALTH</p>
-          <h2>
-            {connectionStatus === 'checking'
-              ? 'Checking...'
-              : connectionStatus === 'healthy'
-                ? 'All systems go'
-                : 'Connection issue'}
-          </h2>
-          <p className="panel-description">
-            {connectionStatus === 'healthy'
-              ? 'SignalBoard successfully received a response from its backend.'
-              : connectionStatus === 'checking'
-                ? 'Contacting the SignalBoard API.'
-                : 'The dashboard could not retrieve a healthy response.'}
-          </p>
-        </article>
+        <nav aria-label="Main navigation">
+          <button
+            className={`nav-item ${view === "health" ? "active" : ""}`}
+            onClick={() => setView("health")}
+            aria-current={view === "health" ? "page" : undefined}
+          >
+            System Health
+          </button>
 
-        <article className="panel">
-          <p className="panel-label">BACKEND SERVICE</p>
-          <h2>{health?.service ?? 'Waiting for response'}</h2>
-          <p className="panel-description">
-            {health
-              ? `Reported status: ${health.status}`
-              : 'Service details will appear when the API responds.'}
-          </p>
-        </article>
+          <button
+            className={`nav-item ${view === "hangout" ? "active" : ""}`}
+            onClick={() => setView("hangout")}
+            aria-current={view === "hangout" ? "page" : undefined}
+          >
+            The Hangout
+          </button>
+        </nav>
 
-        <article className="panel">
-          <p className="panel-label">LAST SUCCESSFUL CHECK</p>
-          <h2 className="timestamp">
-            {health
-              ? new Date(health.timestamp).toLocaleString()
-              : 'Not available'}
-          </h2>
-          <p className="panel-description">
-            Timestamp supplied by the Go backend.
-          </p>
-        </article>
-      </section>
+        <p className="sidebar-footer">Built to learn. Built to grow.</p>
+      </aside>
 
-      {error && (
-        <section className="error-panel" role="alert">
-          <h2>Unable to reach the API</h2>
-          <p>{error}</p>
-          <p>
-            Check that the Go server is running and that the Vite proxy is
-            configured correctly.
-          </p>
-        </section>
-      )}
+      <main className="main-content">
+        {view === "health" ? (
+          <section>
+            <p className="eyebrow">SYSTEM OVERVIEW</p>
+            <h1>System Health</h1>
+            <p className="description">
+              API connectivity and application diagnostics.
+            </p>
 
-      <footer className="dashboard-footer">
-        SignalBoard · Early build · Backend integration
-      </footer>
-    </main>
-  )
+            <div className="panel">
+              <h2>API Status</h2>
+
+              {loading ? (
+                <p>Checking API connection...</p>
+              ) : error ? (
+                <p className="status-error">
+                  API unavailable: {error}
+                </p>
+              ) : (
+                <>
+                  <p className="status-success">
+                    Connected — {health?.status}
+                  </p>
+
+                  <dl className="details">
+                    <dt>Service</dt>
+                    <dd>{health?.service}</dd>
+
+                    <dt>Last response</dt>
+                    <dd>
+                      {health?.timestamp
+                        ? new Date(health.timestamp).toLocaleString()
+                        : "Unavailable"}
+                    </dd>
+                  </dl>
+                </>
+              )}
+            </div>
+
+            <p className="note">
+              Health is checked when the application loads.
+              Automatic polling is a future enhancement.
+            </p>
+          </section>
+        ) : (
+          <section>
+            <p className="eyebrow">PRODUCT PREVIEW</p>
+            <h1>The Hangout</h1>
+            <p className="description">
+              A future home for friends to choose the music and
+              find a time to get together.
+            </p>
+
+            <div className="preview-grid">
+              <article className="panel">
+                <span className="coming-soon">COMING SOON</span>
+                <h2>Music</h2>
+                <p>
+                  Pick a playlist for the group and set the mood.
+                </p>
+
+                <div className="placeholder">
+                  🎵 Insert AUX cable here
+                </div>
+
+                <p className="note">
+                  Planned: Spotify integration and shared playlist
+                  selection. No account connection is active.
+                </p>
+              </article>
+
+              <article className="panel">
+                <span className="coming-soon">COMING SOON</span>
+                <h2>Calendar</h2>
+                <p>
+                  Find a time that works and plan your next hangout.
+                </p>
+
+                <div className="placeholder">
+                  📅 Your next hangout starts here
+                </div>
+
+                <p className="note">
+                  Planned: availability and scheduling.
+                  No calendar integration is active.
+                </p>
+              </article>
+            </div>
+
+            <div className="panel roadmap">
+              <h2>Release roadmap</h2>
+              <p>
+                These features are interface previews only.
+                A future release could use a LaunchDarkly
+                feature flag to control access during internal
+                testing, pilot rollout, and general availability.
+              </p>
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  );
 }
 
-export default App
+export default App;
